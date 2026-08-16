@@ -1,0 +1,56 @@
+name: Build iOS App
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # macos-26 镜像自带 Xcode 26 / iOS 26 SDK，Liquid Glass API 必须用它编译
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project DailyList.xcodeproj \
+            -scheme DailyList \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/DailyList \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean archive
+
+      - name: Verify widget extension is embedded
+        run: |
+          echo "PlugIns contents:"
+          ls -la "build/DailyList.xcarchive/Products/Applications/DailyList.app/PlugIns"
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R "build/DailyList.xcarchive/Products/Applications/DailyList.app" Payload/
+          zip -qry DailyList.ipa Payload
+          ls -lh DailyList.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DailyList-ipa
+          path: DailyList.ipa
+          retention-days: 14
