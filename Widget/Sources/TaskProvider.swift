@@ -32,11 +32,11 @@ struct TaskProvider: AppIntentTimelineProvider {
         TaskEntry(date: Date(), tasks: DailyTask.sampleTasks, usesAppGroup: true, showCompleted: true)
     }
 
-    func snapshot(for configuration: WidgetConfigIntent, in context: Context) async throws -> TaskEntry {
+    func snapshot(for configuration: WidgetConfigIntent, in context: Context) async -> TaskEntry {
         currentEntry(showCompleted: configuration.showCompleted)
     }
 
-    func timeline(for configuration: WidgetConfigIntent, in context: Context) async throws -> Timeline<TaskEntry> {
+    func timeline(for configuration: WidgetConfigIntent, in context: Context) async -> Timeline<TaskEntry> {
         // 跨天后"今日任务"会变化，到明天零点请求一次刷新；
         // 平时的数据变化由每次写入后的 reloadAllTimelines() 驱动。
         var calendar = Calendar.current
