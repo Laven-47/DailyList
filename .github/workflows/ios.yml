@@ -11,13 +11,43 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show tool versions
+        run: |
+          xcodebuild -version
+          sw_vers
+
+      - name: Normalize project layout
+        run: |
+          # 网页上传时若把整个 DailyList 外层文件夹拖入浏览器，所有文件会位于同名子目录；
+          # 这里自动把它们平移到仓库根目录，保证 xcodegen 在根目录能找到 project.yml
+          if [ ! -f project.yml ]; then
+            echo "根目录没有 project.yml，当前根目录内容："
+            ls -la
+            SPEC=$(find . -name project.yml -not -path "./.git/*" | head -n 1)
+            if [ -z "$SPEC" ]; then
+              echo "::error::仓库中找不到 project.yml。请检查上传的是 DailyList 文件夹里面的内容（project.yml 应在仓库根目录），而不是外层文件夹本身。"
+              exit 1
+            fi
+            SPEC_DIR=$(dirname "$SPEC")
+            echo "发现工程位于子目录 $SPEC_DIR，自动平移到根目录"
+            for item in App Shared Widget tools project.yml README.md .gitignore .github; do
+              if [ -e "$SPEC_DIR/$item" ]; then
+                rm -rf "$item"
+                mv "$SPEC_DIR/$item" .
+              fi
+            done
+            rm -rf "$SPEC_DIR"
+          fi
+          echo "根目录最终内容："
+          ls -la
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          brew untap aws/tap >/dev/null 2>&1 || true
+          brew install xcodegen
+          xcodegen --version
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -34,7 +64,21 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            clean archive
+            clean archive > build.log 2>&1 || {
+              echo ""
+              echo "=================================================="
+              echo "构建失败：以下是全部 error 行（含上下文）"
+              echo "=================================================="
+              grep -B 2 -A 4 "error:" build.log | head -n 300 || true
+              echo ""
+              echo "=================================================="
+              echo "日志最后 150 行："
+              echo "=================================================="
+              tail -n 150 build.log
+              exit 1
+            }
+          echo "构建成功"
+          tail -n 5 build.log
 
       - name: Verify widget extension is embedded
         run: |
@@ -49,7 +93,7 @@ jobs:
           ls -lh DailyList.ipa
 
       - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: DailyList-ipa
           path: DailyList.ipa
