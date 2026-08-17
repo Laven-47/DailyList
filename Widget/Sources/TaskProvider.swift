@@ -9,7 +9,7 @@ struct TaskEntry: TimelineEntry {
 }
 
 /// 小组件可配置项（长按小组件 → 编辑小组件）
-struct WidgetConfigIntent: AppIntent {
+struct WidgetConfigIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "组件设置"
 
     @Parameter(title: "显示已完成任务", default: true)
