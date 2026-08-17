@@ -8,7 +8,8 @@ struct TaskEntry: TimelineEntry {
     let showCompleted: Bool
 }
 
-/// 小组件可配置项（长按小组件 → 编辑小组件）
+/// 小组件可配置项（长按小组件 → 编辑小组件）。
+/// 用于 AppIntentConfiguration 的配置 Intent 必须遵循 WidgetConfigurationIntent。
 struct WidgetConfigIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "组件设置"
 
@@ -23,6 +24,10 @@ struct WidgetConfigIntent: WidgetConfigurationIntent {
 }
 
 struct TaskProvider: AppIntentTimelineProvider {
+    // 显式声明关联类型：跨模块 @preconcurrency 协议下编译器有时无法从方法签名推断
+    typealias Intent = WidgetConfigIntent
+    typealias Entry = TaskEntry
+
     func placeholder(in context: Context) -> TaskEntry {
         TaskEntry(date: Date(), tasks: DailyTask.sampleTasks, usesAppGroup: true, showCompleted: true)
     }
@@ -32,7 +37,7 @@ struct TaskProvider: AppIntentTimelineProvider {
     }
 
     func timeline(for configuration: WidgetConfigIntent, in context: Context) async throws -> Timeline<TaskEntry> {
-        // 跨天后"今日任务"会变化，所以到明天零点后请求一次刷新；
+        // 跨天后"今日任务"会变化，到明天零点请求一次刷新；
         // 平时的数据变化由每次写入后的 reloadAllTimelines() 驱动。
         var calendar = Calendar.current
         calendar.timeZone = .current
